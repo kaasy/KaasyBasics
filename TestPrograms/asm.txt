@@ -1,0 +1,27 @@
+#region config
+subregister_is_floating_point   1
+subregister_width_bits          32
+subregisters_per_register       15
+number_of_real_registers        10
+number_of_complex_registers     10
+number_of_input_real_registers      0
+number_of_input_complex_registers   1
+number_of_output_real_registers     1
+number_of_output_complex_registers  0
+memory_size_kb                  1024
+number_of_execution_threads     8
+#endregion
+
+#region execution
+mov c0, ic0
+mov r0, 200
+loop:
+    mov c1, c0
+    mul c0, c0
+    add c0, c1
+    dec r0
+    jmp_not_less_equal c0.real, 2, done
+    jmp_not_less r0, 0, loop
+done:
+mov or0, c0.real
+#endregion

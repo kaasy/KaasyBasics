@@ -1,0 +1,119 @@
+﻿Benchmark Validation File - DO NOT MODIFY! If you do, it will fail validation.
+
+Validation Version:    1.3
+
+Program:               y-cruncher v0.7.5 Build 9481
+Tuning:                14-BDW ~ Kurumi
+
+User:                  None Specified - You can edit this in "Username.txt".
+
+Operating System:      Windows 10.0 Build 17134
+
+Processor(s):
+    Name:              Intel(R) Core(TM) i7-6700K CPU @ 4.00GHz
+    Logical Cores:     8
+    Physical Cores:    4
+    Sockets:           1
+    NUMA Nodes:        1
+    Base Frequency:    4,007,995,647 Hz
+
+Motherboard:
+    Manufacturer:      ASUSTeK COMPUTER INC.
+    Model:             Z170-A
+    Version:           Rev 1.xx
+    Serial Number:     Suppressed - Personally identifiable information is opt-in only.
+
+Memory:
+    Usable Memory:     8,525,717,504 (7.94 GiB)
+    Total Memory:      8,589,934,592 (8.00 GiB)
+    DIMM:              4.00 GiB - Kingston - KHX2133C13D4/4GX    
+    DIMM:              4.00 GiB - Kingston - KHX2133C13D4/4GX    
+
+Constant:              Pi
+Algorithm:             Chudnovsky Formula
+Decimal Digits:        100,001,000
+Hexadecimal Digits:    83,049,033
+Computation Mode:      Ram Only
+Threading Mode:        Push Pool  ->  8 / ?  (randomization on)
+Working Memory:        521,725,272 ( 498 MiB)
+Total Memory:          608,195,928 ( 580 MiB)
+
+Start Date:            Tue Jun 26 22:32:19 2018
+End Date:              Tue Jun 26 22:32:28 2018
+
+Total Computation Time:    6.727 seconds
+Start-to-End Wall Time:    8.476 seconds
+
+CPU Utilization:           778.14 %  +  0.93 % kernel overhead
+Multi-core Efficiency:     97.27 %  +  0.12 % kernel overhead
+
+Last Digits:
+8934550707 5599238208 2118827175 1172855009 0507240726  :  100,000,950
+2596144410 6751147923 4865077281 5635359095 9871382328  :  100,001,000
+
+Dec Counts: {10000019,10002587,10001185,9998538,10003958,9993582,9999508,9999710,10002291,9999622}
+Hex Counts: {5190898,5188151,5195149,5190955,5187672,5192854,5193300,5191626,5190488,5187322,5188707,5189557,5191552,5194310,5188000,5188492}
+
+Binary Hash: Floor(bin * 10^dec) mod (2^61 - 1) = 1905432650495090038
+
+Spot Check:                Good through 100,000,000
+Timer Sanity Check:        Passed
+Frequency Sanity Check:    Disabled in this version of y-cruncher
+Reference Clock:           TSC
+Reference Clock 0:         3,914,061
+Reference Clock 1:         161,025,089
+Reference Clock 2:         19,165,904
+Is Debugger Present:       No
+Is Contiguous:             Yes
+ECC Recovered Errors:      0
+
+Event Log:
+Tue Jun 26 22:32:19 2018	0.006	Reserving Working Memory
+Tue Jun 26 22:32:19 2018	0.148	Reserving Working Memory:  500 MiB  (locked, spread: 100%/1)
+Tue Jun 26 22:32:19 2018	0.148	Constructing Twiddle Tables
+Tue Jun 26 22:32:19 2018	0.192	Constructing Twiddle Tables: 84.0 MiB  (locked, spread: 100%/1)
+Tue Jun 26 22:32:19 2018	0.194	Begin Computation
+Tue Jun 26 22:32:19 2018	0.194	Summing Series
+Tue Jun 26 22:32:19 2018	0.194	Series:  ( 27 ) 0.000%
+Tue Jun 26 22:32:19 2018	0.196	Series:  ( 26 ) 0.014%
+Tue Jun 26 22:32:19 2018	0.196	Series:  ( 25 ) 0.019%
+Tue Jun 26 22:32:19 2018	0.196	Series:  ( 24 ) 0.026%
+Tue Jun 26 22:32:19 2018	0.197	Series:  ( 23 ) 0.037%
+Tue Jun 26 22:32:19 2018	0.198	Series:  ( 22 ) 0.051%
+Tue Jun 26 22:32:19 2018	0.199	Series:  ( 21 ) 0.070%
+Tue Jun 26 22:32:19 2018	0.200	Series:  ( 20 ) 0.098%
+Tue Jun 26 22:32:19 2018	0.202	Series:  ( 19 ) 0.136%
+Tue Jun 26 22:32:19 2018	0.204	Series:  ( 18 ) 0.188%
+Tue Jun 26 22:32:19 2018	0.207	Series:  ( 17 ) 0.261%
+Tue Jun 26 22:32:19 2018	0.212	Series:  ( 16 ) 0.362%
+Tue Jun 26 22:32:19 2018	0.220	Series:  ( 15 ) 0.503%
+Tue Jun 26 22:32:19 2018	0.228	Series:  ( 14 ) 0.698%
+Tue Jun 26 22:32:19 2018	0.240	Series:  ( 13 ) 0.968%
+Tue Jun 26 22:32:19 2018	0.259	Series:  ( 12 ) 1.344%
+Tue Jun 26 22:32:19 2018	0.282	Series:  ( 11 ) 1.865%
+Tue Jun 26 22:32:19 2018	0.311	Series:  ( 10 ) 2.588%
+Tue Jun 26 22:32:19 2018	0.354	Series:  ( 9 ) 3.593%
+Tue Jun 26 22:32:20 2018	0.413	Series:  ( 8 ) 4.988%
+Tue Jun 26 22:32:20 2018	0.502	Series:  ( 7 ) 6.926%
+Tue Jun 26 22:32:20 2018	0.627	Series:  ( 6 ) 9.619%
+Tue Jun 26 22:32:20 2018	0.815	Series:  ( 5 ) 13.364%
+Tue Jun 26 22:32:20 2018	1.072	Series:  ( 4 ) 18.576%
+Tue Jun 26 22:32:21 2018	1.439	Series:  ( 3 ) 25.843%
+Tue Jun 26 22:32:21 2018	1.978	Series:  ( 2 ) 35.994%
+Tue Jun 26 22:32:22 2018	2.759	Series:  ( 1 ) 50.235%
+Tue Jun 26 22:32:23 2018	3.929	Series:  ( 0 ) 70.379%
+Tue Jun 26 22:32:25 2018	5.613	Finishing Series
+Tue Jun 26 22:32:25 2018	5.632	Division
+Tue Jun 26 22:32:25 2018	5.979	InvSqrt
+Tue Jun 26 22:32:25 2018	6.201	Final Multiply
+Tue Jun 26 22:32:25 2018	6.360	Writing hexadecimal Digits
+Tue Jun 26 22:32:26 2018	6.843	Base Converting
+Tue Jun 26 22:32:27 2018	7.407	Writing Decimal Digits
+Tue Jun 26 22:32:27 2018	7.885	Verifying Base Conversion
+Tue Jun 26 22:32:27 2018	8.097	Verifying Decimal Output
+Tue Jun 26 22:32:28 2018	8.475	End Computation
+
+----
+
+Checksum0: c97da7862f03bc6b266927914a38fc4d020b1e749337f694ea6abf05e520e5b246e08093cf056d64ea70547505c72b3c2d3afd48e47c533dd22f12ba429764b9
+Checksum1: 512a76f6fd455100c80ca99f9806df55f1e513a4e5dd81fac60fff0047c3f8d2462b570b900b2d3e6745ffd1d4cfa9b82ebadb9fd7ac82189f35cd185fd8a09f

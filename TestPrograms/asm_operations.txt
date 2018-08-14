@@ -1,0 +1,36 @@
+instructions set:
+logic: 
+mov, and, xor, or, not, clmul
+
+integer arithmetic:
+add, adc, neg, sub, sbb, mul, div, inverse(2^[2n]/x), inverse(p mod q), sqrt, shl, shr, expmod(a^b mod c)
+
+floating point arithmetic:
+add, sub, neg, mul, div, sqrt, invsqrt, inverse, exp, log, cos, sin, arctan2, fft_235
+
+memory allocation:
+new(size)
+
+advanced instructions:
+sha-1 ... sha3-512, aes round, 
+
+execution:
+push, pop, jmp, jmp if, call, ret, try..catch..finally
+
+multithread synchronization:
+lock (write), read-only-lock, wait on semaphore, 
+
+
+remaining: 
+ - karatsuba clmul [done]
+ - fft convolution clmul
+ - inverse(p mod q) [done] by "DivideModP"
+ - expmod(a^b mod c) [done] by "MontgomeryExpMod" and "ExpMod" [done]
+ - generic a * b mod c [done] by "FastestMultiplication" and "GetDivMod" [done]
+ - invsqrt [done]
+ - cos, sin, arctan2 [done]
+ - fft2 & fft_235 on float32 + dct 2 & 3 based on fft of even size [done]
+ - fft2 & fft_235 on float64 + dct 2 & 3 based on fft of even size [done]
+ - sha and aes
+ - execution operations
+ - lock synchronization
