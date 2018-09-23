@@ -19,11 +19,14 @@ namespace Demo.App.Windows.Forms
             bool ok = true;
             //testMultiplicationSpeed();
 
+            RealNumber ten = new RealNumber(10, 1000);
+            RealNumber logTen = ten.GetLog();
+            RealNumber tenExp1 = logTen.GetExp();
+            RealNumber tenExp2 = logTen.GetTaylorExp();
             IntegerNumber i1 = IntegerNumber.One << 100000;
             IntegerNumber ia = i1.Sqrt();
             IntegerNumber ib = i1.InverseSqrt();
 
-            RealNumber ten = new RealNumber(10L, 5000);
             RealNumber ssqrt10 = ten.GetSlowerSqrt();
             RealNumber sqrt10 = ten.GetSqrt();
             RealNumber invSqrt10 = ten.GetInverseSqrt();

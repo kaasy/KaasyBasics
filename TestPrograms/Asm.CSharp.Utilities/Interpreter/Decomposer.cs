@@ -51,7 +51,7 @@ namespace Utilities
 
         private static List<Pair> registersComplexParts = new List<Pair>() {
             new Pair(".real", "Real"),
-            new Pair(".imag", "Imaginaty"),
+            new Pair(".imag", "Imaginary"),
             new Pair(".phase", "Phase"),
             new Pair(".abs", "Magnitude")
         };
@@ -176,23 +176,14 @@ namespace Utilities
         public ASMRegisters Input = new ASMRegisters();
         public ASMRegisters Output = new ASMRegisters();
         public ASMRegisters Work = new ASMRegisters();
-        private byte[] Memory = new byte[0];
-        private GCHandle MemoryPin = new GCHandle();
+        private MemoryAllocation memory;
 
         public void ApplyConfiguration()
         {
+            this.memory = new MemoryAllocation(this.MemorySizeKB << 10);
             this.Input.Apply(this.SubregisterIsFloatingPoint != 0, this.SubregistersPerRegister, this.NumberOfInputRealRegisters, this.NumberOfInputComplexRegisters);
             this.Output.Apply(this.SubregisterIsFloatingPoint != 0, this.SubregistersPerRegister, this.NumberOfOutputRealRegisters, this.NumberOfOutputComplexRegisters);
             this.Work.Apply(this.SubregisterIsFloatingPoint != 0, this.SubregistersPerRegister, this.NumberOfRealRegisters, this.NumberOfComplexRegisters);
-            try
-            {
-                this.MemoryPin.Free();
-                Array.Resize(ref this.Memory, this.MemorySizeKB << 10);
-            }
-            finally
-            {
-                GCHandle.Alloc(this.Memory, GCHandleType.Pinned);
-            }
         }
     }
 
@@ -385,7 +376,7 @@ namespace Utilities
             }
 
             List<RegisterReference> registers = new List<RegisterReference>();
-            for (int i = 0; i < registers.Count; i++)
+            for (int i = 0; i < ops.Length; i++)
             {
                 int jumpLocation;
                 if (labels.TryGetValue(ops[i], out jumpLocation))
@@ -408,43 +399,41 @@ namespace Utilities
 
         private static bool doExecute(string mainop, List<RegisterReference> registers, ASMConfig config)
         {
-            GenericOpFunction0 fn0 = null;
-            GenericOpFunction1 fn1 = null;
-            GenericOpFunction2 fn2 = null;
-            GenericOpFunction2 fn3 = null;
+            RegisterReference destination = registers.Count > 0 ? registers[0] : new RegisterReference();
+            RegisterReference source = registers.Count > 1 ? registers[1] : new RegisterReference();
 
             switch (mainop)
             {
-                case "mov": fn1 = FourierPoint.OpMov; break;
-                case "and": fn2 = FourierPoint.OpAnd; break;
-                case "or": fn2 = FourierPoint.OpOr; break;
-                case "xor": fn2 = FourierPoint.OpXor; break;
-                case "not": fn0 = FourierPoint.OpNot; break;
-                case "clmul": fn2 = FourierPoint.OpCLMul; break;
+                //case "mov":
+                //case "and": fn2 = FourierPoint.OpAnd; break;
+                //case "or": fn2 = FourierPoint.OpOr; break;
+                //case "xor": fn2 = FourierPoint.OpXor; break;
+                //case "not": fn0 = FourierPoint.OpNot; break;
+                //case "clmul": fn2 = FourierPoint.OpCLMul; break;
 
-                case "add": fn2 = FourierPoint.OpAdd; fn3 = FourierPoint.OpFPAdd; break;
-                case "adc": throw new NotImplementedException(); break;
-                case "neg": throw new NotImplementedException(); break;
-                case "sub": fn2 = FourierPoint.OpSub; fn3 = FourierPoint.OpFPSub; break;
-                case "sbb": throw new NotImplementedException(); break;
-                case "mul": fn2 = FourierPoint.OpMul; fn3 = FourierPoint.OpFPMul; break;
-                case "div": fn3 = FourierPoint.OpFPDiv; break;
-                case "lldiv": throw new NotImplementedException(); break;
-                case "modinv": throw new NotImplementedException(); break;
-                case "sqrt": throw new NotImplementedException(); break;
-                case "shl": throw new NotImplementedException(); break;
-                case "shr": throw new NotImplementedException(); break;
-                case "expmod": throw new NotImplementedException(); break;
+                //case "add": fn2 = FourierPoint.OpAdd; fn3 = FourierPoint.OpFPAdd; break;
+                //case "adc": throw new NotImplementedException(); break;
+                //case "neg": throw new NotImplementedException(); break;
+                //case "sub": fn2 = FourierPoint.OpSub; fn3 = FourierPoint.OpFPSub; break;
+                //case "sbb": throw new NotImplementedException(); break;
+                //case "mul": fn2 = FourierPoint.OpMul; fn3 = FourierPoint.OpFPMul; break;
+                //case "div": fn3 = FourierPoint.OpFPDiv; break;
+                case "lldiv": throw new NotImplementedException();
+                case "modinv": throw new NotImplementedException();
+                case "sqrt": throw new NotImplementedException();
+                case "shl": throw new NotImplementedException();
+                case "shr": throw new NotImplementedException();
+                case "expmod": throw new NotImplementedException();
 
-                case "invsqrt": throw new NotImplementedException(); break;
-                case "inverse": throw new NotImplementedException(); break;
-                case "exp": throw new NotImplementedException(); break;
-                case "log": throw new NotImplementedException(); break;
+                case "invsqrt": throw new NotImplementedException();
+                case "inverse": throw new NotImplementedException();
+                case "exp": throw new NotImplementedException();
+                case "log": throw new NotImplementedException();
 
-                case "fft": throw new NotImplementedException(); break;
-                case "dct2": throw new NotImplementedException(); break;
-                case "dct3": throw new NotImplementedException(); break;
-                case "new": throw new NotImplementedException(); break;
+                case "fft": throw new NotImplementedException();
+                case "dct2": throw new NotImplementedException();
+                case "dct3": throw new NotImplementedException();
+                case "new": throw new NotImplementedException();
 
                 case "jmp_equal": break;
                 case "jmp_not_equal": break;

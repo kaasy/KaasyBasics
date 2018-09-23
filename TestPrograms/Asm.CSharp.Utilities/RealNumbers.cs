@@ -111,6 +111,8 @@ namespace Utilities
             }
         }
 
+        public double EstimateLog2 { get { return IntegerNumber.Log2(this.mantissa) + this.shift; } }
+
         public long ToLong
         {
             get
@@ -140,6 +142,12 @@ namespace Utilities
         public static RealNumber operator *(RealNumber x, RealNumber y)
         {
             RealNumber result = new RealNumber(x.shift + y.shift, x.mantissa * y.mantissa, Math.Max(x.totalDigits, y.totalDigits));
+            return result;
+        }
+
+        public static RealNumber operator *(RealNumber x, IntegerNumber y)
+        {
+            RealNumber result = new RealNumber(x.shift, x.mantissa * y, x.totalDigits);
             return result;
         }
 
@@ -174,6 +182,14 @@ namespace Utilities
         {
             RealNumber result = new RealNumber(x.shift - 64, (x.mantissa << 64) / y, x.totalDigits);
             return result;
+        }
+
+        public static RealNumber operator /(RealNumber x, IntegerNumber y)
+        {
+            int shift = x.totalDigits * 64 - x.mantissaBits + y.BitsCount;
+            IntegerNumber remainder;
+            IntegerNumber quotient = IntegerNumber.DivRem(x.mantissa << shift, y, out remainder);
+            return new RealNumber(x.shift - shift, quotient, x.totalDigits);
         }
 
         public RealNumber Inverse()
@@ -409,6 +425,176 @@ namespace Utilities
             return result;
         }
 
+        #region Taylor expansion exponentiation
+
+        private static double getApproximativeLogFactorial(int n)
+        {
+            const double ln_sqrt_2pi = 0.91893853320467274178032973640562;  // = Math.Log(Math.PI * 2) * 0.5
+            double lnN = Math.Log(n);
+            return ln_sqrt_2pi + lnN * 0.5 + n * (lnN - 1);
+        }
+
+        private static int getNumberOfExpFactors(int powerOf2, int totalDigits)
+        {   //find n so: [2^powerOf2]^n / n! <= 2^(-64 * totalDigits) or:
+            //<==> n * powerOf2 - Ln[n!] / Ln[2] <= -64 * totalDigits 
+            double rightValue = -64.0 * totalDigits;
+            double lgExp = powerOf2;
+            int n = 1;
+            while (n * lgExp - getApproximativeLogFactorial(n) * LG_E > rightValue)
+            {
+                n <<= 1;
+            }
+            int left = n >> 1;
+            int right = n;
+            while (left < right)
+            {   // [st m0 M1 en]
+                n = left + ((right - left + 1) >> 1);   //rightmost strictly less.
+                if (n * lgExp - getApproximativeLogFactorial(n) * LG_E > rightValue)
+                {
+                    left = n;
+                }
+                else
+                {
+                    right = n - 1;
+                }
+            }
+            return left;
+        }
+
+        private static IntegerNumber getIntegerProduct(int start, int end)
+        {
+            if (start >= end)
+            {
+                return start == end ? new IntegerNumber((long)start) : IntegerNumber.One;
+            }
+            int middle = start + ((end - start) >> 1);
+            IntegerNumber left = getIntegerProduct(start, middle);
+            IntegerNumber right = getIntegerProduct(middle + 1, end);
+            IntegerNumber result = left * right;
+            IntegerNumber.shrink(ref result);
+            return result;
+        }
+
+        //result = sum[i = start to end: of startPower * exp^[i-start] * product[i + 1 to end]
+        private static RealNumber getLocalExponentialSummation(int start, int end, ref RealNumber startPower, RealNumber exp, out IntegerNumber product)
+        {
+            if (end == start)
+            {
+                product = new IntegerNumber((long)start);
+                return startPower;
+            }
+            RealNumber save = startPower;
+            startPower *= exp;
+            RealNumber result = getLocalExponentialSummation(start + 1, end, ref startPower, exp, out product);
+            result += save * product;
+            product *= start;
+            IntegerNumber.shrink(ref product);
+            return result;
+        }
+
+        /// <summary>
+        /// returns A = sum(i = start to end of: exp ^ i / i!) 
+        /// returns B = [end! / (start - 1)!] = product from [start to end] inclusive
+        /// A * B = Exp[exp]
+        /// </summary>
+        private static RealNumber taylorSeriesExponent(int start, int end,
+            RealNumber exp,
+            ref RealNumber startPower,          // startPower = exp ^ start [is input]
+            out IntegerNumber factorial)	    // = end! / (start - 1)! = product from [start to end] inclusive
+        {
+            //if (start == end)
+            //{
+            //    factorial = start == 0 ? IntegerNumber.One : new IntegerNumber((long)start);
+            //    return startPower;
+            //}
+            if (start + 24 >= end)
+            {
+                RealNumber result = getLocalExponentialSummation(start, end, ref startPower, exp, out factorial);
+                return result;
+                ///result = sum[i = start to end: of startPower * exp^(i-start) * product[i + 1 to end]
+                //factorial = getIntegerProduct(start, end);
+                //IntegerNumber product = factorial / start;
+                //RealNumber result = startPower * product;
+                //for (int i = start + 1; i <= end; i++)
+                //{
+                //    startPower *= exp;
+                //    product /= i;
+                //    result += startPower * product;
+                //}
+                //return result;
+            }
+
+            int middle = start + ((end - start) >> 1);
+            IntegerNumber secondFactorial;
+            RealNumber left = taylorSeriesExponent(start, middle, exp, ref startPower, out factorial);
+            startPower *= exp;      //we have startPower computed at "middle", need to multiply once here to compute it for the "middle + 1" exponent.
+            RealNumber right = taylorSeriesExponent(middle + 1, end, exp, ref startPower, out secondFactorial);
+            factorial *= secondFactorial;
+            IntegerNumber.shrink(ref factorial);
+            //left / A! + right / B! = [left * (B!/A!) + right] / B!
+            return left * secondFactorial + right;
+        }
+
+        public IntegerNumber getBitBurst(int index, int count)
+        {   //value = this.mantissa << this.shift
+            IntegerNumber result = this.mantissa.GetBitsAt(index - (int)this.shift, count);
+            return result;
+        }
+
+        /// <summary>
+        /// Using the Taylor expansion with the bit burst algorithm from: https://members.loria.fr/PZimmermann/talks/arctan.pdf
+        /// </summary>
+        /// <returns></returns>
+        public RealNumber GetTaylorExp()
+        {
+            if (this.IsZero)
+            {
+                return new RealNumber(1L, this.totalDigits);
+            }
+
+            int totalDigits = this.totalDigits + 2;
+            bool isNegative = this.IsNegative;
+            RealNumber log = RealNumber.Abs(this).ChangePrecision(totalDigits);
+
+            double estimateLog2 = log.EstimateLog2;
+            //Exp[n] = Exp[n / 2] ^ 2 ; -> Repeat until argument n is in (0 .. 0.25]
+            int squarings = Math.Max(0, (int)Math.Floor(estimateLog2) + 2);
+            log >>= squarings;
+
+            int totalInputBits = Math.Min(totalDigits * 64, 2 + this.mantissa.BitsCount);
+            RealNumber result = new RealNumber(1L, totalDigits);
+            for (int count = 1; count < totalInputBits; count <<= 1)
+            {
+                int start = count << 1;
+                IntegerNumber y = log.getBitBurst(-start, count);
+                if (y.IsZero)
+                {
+                    continue;
+                }
+                RealNumber x = new RealNumber(-start, y, totalDigits);
+                int factors = getNumberOfExpFactors(-count, totalDigits);
+                //if (-1.0 * factors * count - getApproximativeLogFactorial(factors) * LG_E < -totalDigits * 64.0 ||
+                //    -1.0 * (factors + 1) * count - getApproximativeLogFactorial(factors + 1) * LG_E > -totalDigits * 64.0)
+                //{
+                //    Debugger.Break();
+                //}
+
+                x = isNegative ? -x : x;
+                IntegerNumber factorial;
+                RealNumber partial = taylorSeriesExponent(1, factors, x, ref x, out factorial);
+                result *= RealNumber.One + partial / factorial;
+            }
+
+            for (int i = squarings; --i >= 0;)
+            {
+                result = result.Square();
+            }
+            result = result.ChangePrecision(this.totalDigits);
+            return result;
+        }
+
+        #endregion
+
         #region Exponential
 
         //https://en.wikipedia.org/wiki/Householder%27s_method
@@ -490,6 +676,8 @@ namespace Utilities
             return result;
         }
 
+        #endregion
+
         public RealNumber Floor()
         {
             if (this.shift >= 0)
@@ -510,8 +698,6 @@ namespace Utilities
             RealNumber result = new RealNumber(this.shift, this.mantissa, newNumberOf64BitDigits);
             return result;
         }
-
-        #endregion
 
         private static ConcurrentDictionary<int, RealNumber> piDictionary = new ConcurrentDictionary<int, RealNumber>();
         public static RealNumber GetPI(int numberOf64BitDigits)
@@ -986,13 +1172,19 @@ namespace Utilities
             List<string> representation = new List<string>();
             for (int power = -25; power <= 25; power++)
             {
-                RealNumber rn = (ln10 * power).GetExp();
+                RealNumber rn1 = (ln10 * power).GetExp();
+                RealNumber rn2 = (ln10 * power).GetTaylorExp();
+                if (!(rn1 - rn2).IsZero)
+                {
+                    return false;
+                }
                 double dn = Math.Pow(10, power);
                 for (int i = 0; i <= 100; i++)
                 {
-                    RealNumber number = rn * i / 100L;
+                    RealNumber number1 = rn1 * i / 100L;
+                    RealNumber number2 = rn2 * i / 100L;
                     double num1 = dn * i / 100.0;
-                    double num2 = double.Parse(number.ToString());
+                    double num2 = double.Parse(number1.ToString());
                     while (num1.ToString("R").Contains("9999"))
                     {
                         num1 = BitConverter.Int64BitsToDouble(BitConverter.DoubleToInt64Bits(num1) + 1L);

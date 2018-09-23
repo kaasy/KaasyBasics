@@ -37,6 +37,10 @@ namespace Utilities
         public static extern void PropagateCarries(IntPtr number, int bitsPerDigit, int numberLength);
 
         [DllImport("AsmX64BitBasicOperations.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void PowMod(ref FourierPoint a, ref FourierPoint power);
+
+        #region Fast ASM Operations on a single register
+        [DllImport("AsmX64BitBasicOperations.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void OpMov(IntPtr destination, IntPtr source, int log2BitsPerOp, int n);
 
         [DllImport("AsmX64BitBasicOperations.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -74,9 +78,7 @@ namespace Utilities
 
         [DllImport("AsmX64BitBasicOperations.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void OpFPDiv(IntPtr source1, IntPtr source2, IntPtr destination, int log2BitsPerOp, int n);
-
-        [DllImport("AsmX64BitBasicOperations.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void PowMod(ref FourierPoint a, ref FourierPoint power);
+        #endregion
 
         public static readonly FourierPoint PrimeModulo = new FourierPoint((1023UL << 54) + 1UL, ulong.MaxValue);
         public static readonly FourierPoint One = new FourierPoint(1UL, 0UL);

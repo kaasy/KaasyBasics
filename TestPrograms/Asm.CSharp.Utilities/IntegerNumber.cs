@@ -501,6 +501,23 @@ namespace Utilities
             return (this.bits[index >> 6] & (1UL << (index & 63))) != 0;
         }
 
+        public IntegerNumber GetBitsAt(int index, int count)
+        {
+            IntegerNumber shifted = this >> index;
+            int cell = count >> 6;
+            int pos = count & 63;
+            IntegerNumber result = new IntegerNumber(new ulong[cell + 1], false);
+            for (int i = Math.Min(cell, shifted.bits.Length); --i >= 0;)
+            {
+                result.bits[i] = shifted.bits[i];
+            }
+            if (pos != 0 && cell < shifted.bits.Length)
+            {
+                result.bits[cell] = shifted.bits[cell] & (ulong.MaxValue >> (64 - pos));
+            }
+            return result;
+        }
+
         public IntegerNumber ModPow(IntegerNumber power, IntegerNumber prime, Func<IntegerNumber, IntegerNumber> modPFunction)
         {
             IntegerNumber a = this;
