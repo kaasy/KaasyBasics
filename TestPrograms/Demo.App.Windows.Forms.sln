@@ -18,6 +18,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "X64Operations.UnitTest", "X
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASMInterpreter", "ASMInterpreter\ASMInterpreter.csproj", "{C268C8E7-04E9-4D52-976D-5987DCA0AEFD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeBoorFormsApp", "DeBoorFormsApp\DeBoorFormsApp.csproj", "{5A3950AE-F223-44EB-8D04-EDA427B71EA6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,6 +50,10 @@ Global
 		{C268C8E7-04E9-4D52-976D-5987DCA0AEFD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C268C8E7-04E9-4D52-976D-5987DCA0AEFD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C268C8E7-04E9-4D52-976D-5987DCA0AEFD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5A3950AE-F223-44EB-8D04-EDA427B71EA6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A3950AE-F223-44EB-8D04-EDA427B71EA6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A3950AE-F223-44EB-8D04-EDA427B71EA6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5A3950AE-F223-44EB-8D04-EDA427B71EA6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
