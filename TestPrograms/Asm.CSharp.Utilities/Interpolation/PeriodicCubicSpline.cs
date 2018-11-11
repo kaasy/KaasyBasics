@@ -173,21 +173,21 @@ namespace Utilities
             double error = 0;
             for (int i = 1; i < this.x.Count; i++)
             {
-                error = Math.Max(error, (Evaluate(this.x[i], i) - Evaluate(this.x[i], i - 1)).Energy);
-                error = Math.Max(error, (Derivative(this.x[i], i) - Derivative(this.x[i], i - 1)).Energy);
-                error = Math.Max(error, (SecondDerivative(this.x[i], i) - SecondDerivative(this.x[i], i - 1)).Energy);
+                error = Math.Max(error, (Evaluate(this.x[i], i) - Evaluate(this.x[i], i - 1)).Energy());
+                error = Math.Max(error, (Derivative(this.x[i], i) - Derivative(this.x[i], i - 1)).Energy());
+                error = Math.Max(error, (SecondDerivative(this.x[i], i) - SecondDerivative(this.x[i], i - 1)).Energy());
             }
             if (n < this.x.Count)
             {
-                error = Math.Max(error, (Evaluate(this.x[0], 0) - Evaluate(this.x[n], n)).Energy);
-                error = Math.Max(error, (SecondDerivative(this.x[0], 0) - SecondDerivative(this.x[n], n)).Energy);
+                error = Math.Max(error, (Evaluate(this.x[0], 0) - Evaluate(this.x[n], n)).Energy());
+                error = Math.Max(error, (SecondDerivative(this.x[0], 0) - SecondDerivative(this.x[n], n)).Energy());
                 if (n == 2)
                 {
-                    error = Math.Max(error, (Derivative(this.x[0], 0) + Derivative(this.x[n], n)).Energy);
+                    error = Math.Max(error, (Derivative(this.x[0], 0) + Derivative(this.x[n], n)).Energy());
                 }
                 else
                 {
-                    error = Math.Max(error, (Derivative(this.x[0], 0) - Derivative(this.x[n], n)).Energy);
+                    error = Math.Max(error, (Derivative(this.x[0], 0) - Derivative(this.x[n], n)).Energy());
                 }
             }
             return Math.Sqrt(error);

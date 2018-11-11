@@ -42,7 +42,7 @@ namespace Utilities
             return (x - x1) / (x2 - x1) * (y2 - y1) + y1;
         }
 
-        private List<double> getDistances()
+        private List<double> getDistances(bool circular)
         {
             List<double> distances = new List<double>();
             double firstDistance = 0;
@@ -52,7 +52,7 @@ namespace Utilities
                 firstDistance += this.pointsXY[i - 1].Distance(this.pointsXY[i]);
                 distances.Add(firstDistance);
             }
-            if (this.pointsXY.Count > 1)
+            if (circular && this.pointsXY.Count > 1)
             {
                 firstDistance += this.pointsXY[0].Distance(this.pointsXY[this.pointsXY.Count - 1]);
                 distances.Add(firstDistance);
@@ -72,8 +72,7 @@ namespace Utilities
             Graphics G = e.Graphics;
             Pen thePen = new Pen(Color.White, 2.0f);
 
-            var distances = this.getDistances();
-            List<PointF> list = new List<PointF>();
+            var distances = this.getDistances(!this.LocalSuppot);
             GeneralSpline spline;
             if (this.LocalSuppot)
             {
@@ -89,6 +88,7 @@ namespace Utilities
                 }
             }
 
+            List<PointF> list = new List<PointF>();
             int oldDistance = 0;
             for (int i = 1; i < distances.Count; i++)
             {

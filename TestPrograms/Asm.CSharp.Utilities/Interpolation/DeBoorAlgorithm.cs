@@ -48,8 +48,9 @@ namespace Utilities
                 for (int i = degree; i >= k; i--)
                 {
                     double alpha = (tx - knot(i + shift)) / (knot(i + 1 + index - k) - knot(i + shift));
-                    alpha = double.IsInfinity(alpha) || double.IsNaN(alpha) ? 1.0 : alpha;
-                    dk[i] = dk[i - 1] + alpha * (dk[i] - dk[i - 1]);
+                    bool nan = double.IsInfinity(alpha) || double.IsNaN(alpha);
+                    alpha = nan ? 1.0 : alpha;
+                    dk[i] = dk[i - 1] * (1 - alpha) + alpha * dk[i];
                 }
             }
             return dk[degree];
