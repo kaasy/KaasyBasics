@@ -45,12 +45,17 @@ namespace Utilities
         private List<double> getDistances()
         {
             List<double> distances = new List<double>();
-            double dirstDistance = 0;
-            distances.Add(dirstDistance);
+            double firstDistance = 0;
+            distances.Add(firstDistance);
             for (int i = 1; i < this.pointsXY.Count; i++)
             {
-                dirstDistance += this.pointsXY[i - 1].Distance(this.pointsXY[i]);
-                distances.Add(dirstDistance);
+                firstDistance += this.pointsXY[i - 1].Distance(this.pointsXY[i]);
+                distances.Add(firstDistance);
+            }
+            if (this.pointsXY.Count > 1)
+            {
+                firstDistance += this.pointsXY[0].Distance(this.pointsXY[this.pointsXY.Count - 1]);
+                distances.Add(firstDistance);
             }
             return distances;
         }
@@ -68,7 +73,6 @@ namespace Utilities
             Pen thePen = new Pen(Color.White, 2.0f);
 
             var distances = this.getDistances();
-            int oldDistance = 0;
             List<PointF> list = new List<PointF>();
             GeneralSpline spline;
             if (this.LocalSuppot)
@@ -78,9 +82,15 @@ namespace Utilities
             else
             {
                 spline = new PeriodicCubicSpline(distances, this.pointsXY);
+                double err = (spline as PeriodicCubicSpline).UnitTestError();
+                if (err > 1E-6)
+                {
+                    System.Diagnostics.Debugger.Break();
+                }
             }
 
-            for (int i = 1; i < pointsXY.Count; i++)
+            int oldDistance = 0;
+            for (int i = 1; i < distances.Count; i++)
             {
                 double currentDistance = distances[i];
                 while (oldDistance < currentDistance)

@@ -31,7 +31,7 @@ namespace Utilities
             this.x = new List<double>(X);
             this.y = new List<Complex>(Y);
 
-            this.n = this.x.Count;
+            this.n = this.x.Count - 1;
             if (n <= 1)
             {
                 return;
@@ -137,19 +137,53 @@ namespace Utilities
 
         public Complex Evaluate(double tx, int index)
         {
-            if (n <= 0)
+            if (n <= 1)
             {
-                return Complex.Zero;
-            }
-            if (n == 1)
-            {
-                return y[0];
+                return n == 0 ? Complex.Zero : y[0];
             }
             index = Math.Min(Math.Max(index, 0), n - 1);
             tx -= x[index];
-            return a[index] + tx * (b[index] + tx * (c[index] + tx * d[index]));
-            //return (b[index] + (2 * c[index] + 3 * d[index] * tx) * tx) * 0.10 + 0.5; //first derivative
-            //return 2 * (c[index] + 3 * d[index] * tx) * 0.01 + 0.5;   //second derivative
+            return ((d[index] * tx + c[index]) * tx + b[index]) * tx + a[index];
+        }
+
+        public Complex Derivative(double tx, int index)
+        {
+            if (n <= 1)
+            {
+                return Complex.Zero;
+            }
+            index = Math.Min(Math.Max(index, 0), n - 1);
+            tx -= x[index];
+            return (d[index] * tx * 3 + c[index] * 2) * tx + b[index];
+        }
+
+        public Complex SecondDerivative(double tx, int index)
+        {
+            if (n <= 1)
+            {
+                return Complex.Zero;
+            }
+            index = Math.Min(Math.Max(index, 0), n - 1);
+            tx -= x[index];
+            return d[index] * tx * 6 + c[index] * 2;
+        }
+
+        public double UnitTestError()
+        {
+            Complex error = 0;
+            for (int i = 1; i < this.x.Count; i++)
+            {
+                error += Evaluate(this.x[i], i) - Evaluate(this.x[i], i - 1);
+                error += Derivative(this.x[i], i) - Derivative(this.x[i], i - 1);
+                error += SecondDerivative(this.x[i], i) - SecondDerivative(this.x[i], i - 1);
+            }
+            if (n < this.x.Count && n >= 3)
+            {
+                error += Evaluate(this.x[0], 0) - Evaluate(this.x[n], n);
+                error += Derivative(this.x[0], 0) - Derivative(this.x[n], n);
+                error += SecondDerivative(this.x[0], 0) - SecondDerivative(this.x[n], n);
+            }
+            return error.Magnitude;
         }
     }
 }
