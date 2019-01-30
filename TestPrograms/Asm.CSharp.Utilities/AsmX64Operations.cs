@@ -77,7 +77,7 @@ namespace Utilities
         /// Restriction: modulo[0] must / has to be odd otherwise the method won't work due to the Montgomery reduction requirement.
         /// </summary>
         [DllImport("AsmX64BitBasicOperations.dll", CallingConvention = CallingConvention.Cdecl)]
-        private static extern void MontgomeryExpMod(ulong[] baseValue, ulong[] power, ulong[] modulo, int n, int cacheBits);
+        public static extern void MontgomeryExpMod(ulong[] baseValue, ulong[] power, ulong[] modulo, int n, int cacheBits);
 
         [DllImport("AsmX64BitBasicOperations.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern void ExpMod(ulong[] baseValue, ulong[] power, ulong[] modulo, int n, int cacheBits);
