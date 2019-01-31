@@ -58,20 +58,35 @@ namespace Demo.App.Windows.Forms
             int decimalDigits = 10100;
             int qwords = (int)Math.Ceiling(Math.Log(10, 2) * decimalDigits / 64);
             RealNumber pi = RealNumber.Zero;
+            RealNumber e = RealNumber.Zero;
             RealNumber one = new RealNumber(1L, qwords);
             var computePITime = AsmX64Operations.MeasureTime(() =>
             {
-                pi = one.GetExp();   // RealNumber.GetPI(qwords);
+                pi = RealNumber.GetPI(qwords);
+            });
+            var computeETime = AsmX64Operations.MeasureTime(() =>
+            {
+                e = one.GetExp();
             });
             string pivalue = "";
-            var baseConvertTime = AsmX64Operations.MeasureTime(() =>
+            string evalue = "";
+            var baseConvertTimePI = AsmX64Operations.MeasureTime(() =>
             {
                 pivalue = pi.ToString();
             });
-            System.IO.File.WriteAllText(@"..\e.txt", pivalue);
+            var baseConvertTimeE = AsmX64Operations.MeasureTime(() =>
+            {
+                evalue = e.ToString();
+            });
+            System.IO.File.WriteAllText(@"..\pi10k.txt", pivalue);
+            System.IO.File.WriteAllText(@"..\e_10k.txt", evalue);
 
-            MessageBox.Show("Compute PI Time: " + computePITime.ToString() + "\r\n" +
-                "base convert time: " + baseConvertTime.ToString(), "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(
+                "Compute PI Time: " + computePITime.ToString() + "\r\n" +
+                "Compute E  Time: " + computeETime.ToString() + "\r\n" +
+                "base convert time PI: " + baseConvertTimePI.ToString() + "\r\n" +
+                "base convert time E : " + baseConvertTimeE.ToString() + "\r\n",
+                "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             try
             {

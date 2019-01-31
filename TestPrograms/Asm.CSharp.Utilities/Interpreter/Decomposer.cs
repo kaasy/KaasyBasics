@@ -307,7 +307,7 @@ namespace Utilities
             System.Reflection.PropertyInfo propertyInfo;
             if (hashSettingToMemberInformation.TryGetValue(values[0], out propertyInfo))
             {
-                propertyInfo.SetValue(this.config, int.Parse(values[1]));
+                propertyInfo.SetValue(this.config, int.Parse(values[1]), null);
                 return true;
             }
             return false;

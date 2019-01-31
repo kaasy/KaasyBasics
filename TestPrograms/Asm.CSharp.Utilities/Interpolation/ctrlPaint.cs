@@ -17,11 +17,12 @@ namespace Utilities
         {
             InitializeComponent();
             this.Degree = 3;
-            this.LocalSuppot = true;
+            this.Periodic = false;
+            this.toolStripStatusLabel1.Text = "OK";
         }
 
         public int Degree { get; set; }
-        public bool LocalSuppot { get; set; }
+        public bool Periodic { get; set; }
 
         private void ctrlPaint_Paint(object sender, PaintEventArgs e)
         {
@@ -72,9 +73,9 @@ namespace Utilities
             Graphics G = e.Graphics;
             Pen thePen = new Pen(Color.White, 2.0f);
 
-            var distances = this.getDistances(!this.LocalSuppot);
+            var distances = this.getDistances(this.Periodic);
             GeneralSpline spline;
-            if (this.LocalSuppot)
+            if (!this.Periodic)
             {
                 spline = new DeBoorAlgorithm(distances, this.pointsXY, this.Degree);
             }
@@ -119,6 +120,11 @@ namespace Utilities
             }
             this.pointsXY.RemoveAll(p => toRemove.Contains(p));
             this.pointsXY.Add(new Complex(e.X, e.Y));
+            this.pictureBox1.Invalidate();
+        }
+
+        public void CompleteRedraw()
+        {
             this.pictureBox1.Invalidate();
         }
     }

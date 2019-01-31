@@ -18,7 +18,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "X64Operations.UnitTest", "X
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ASMInterpreter", "ASMInterpreter\ASMInterpreter.csproj", "{C268C8E7-04E9-4D52-976D-5987DCA0AEFD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeBoorFormsApp", "DeBoorFormsApp\DeBoorFormsApp.csproj", "{5A3950AE-F223-44EB-8D04-EDA427B71EA6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeBoorFormsAppOK", "DeBoorFormsApp\DeBoorFormsAppOK.csproj", "{5A3950AE-F223-44EB-8D04-EDA427B71EA6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
