@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Utilities;
@@ -217,6 +218,61 @@ namespace X64Operations.UnitTest
         public void MemoryAllocationUnitTestMethod()
         {
             bool ok = MemoryUnitTest.UnitTest(1001);
+            Assert.IsTrue(ok);
+        }
+
+        [TestMethod]
+        public void SmallToString()
+        {
+            int precision = 100;
+            RealNumber ten = new RealNumber(10L, precision + 1);
+            RealNumber ln10 = ten.GetLog();
+
+            RealNumber v1 = (0 * ln10).GetExp();
+            RealNumber v2 = (9 * ln10).GetExp();
+            RealNumber v3 = (10 * ln10).GetExp();
+            RealNumber v4 = (100 * ln10).GetExp();
+            RealNumber v5 = (-9 * ln10).GetExp();
+            RealNumber v6 = (-10 * ln10).GetExp();
+            RealNumber v7 = (-100 * ln10).GetExp();
+            RealNumber v8 = (30 * ln10).GetExp();
+            RealNumber v9 = (-20 * ln10).GetExp();
+            RealNumber vA = (20 * ln10).GetExp();
+            RealNumber vB = (23 * ln10).GetExp();
+            RealNumber vC = (-23 * ln10).GetExp();
+
+            List<RealNumber> list = new List<RealNumber> { v1, v2, v3, v4, v5, v6, v7, v8, v9, vA, vB, vC };
+            for (int i = list.Count; --i >= 0;)
+            {
+                list[i] = list[i].ChangePrecision(precision);
+            }
+
+            string s1 = v1.ToString();
+            string s2 = v2.ToString();
+            string s3 = v3.ToString();
+            string s4 = v4.ToString();
+            string s5 = v5.ToString();
+            string s6 = v6.ToString();
+            string s7 = v7.ToString();
+            string s8 = v8.ToString();
+            string s9 = v9.ToString();
+            string sA = vA.ToString();
+            string sB = vB.ToString();
+            string sC = vC.ToString();
+
+            bool ok =
+                s1 == "1" &&
+                s2 == "1000000000" &&
+                s3 == "10000000000" &&
+                s4 == "1e+100" &&
+                s5 == "0.000000001" &&
+                s6 == "0.0000000001" &&
+                s7 == "1e-100" &&
+                s8 == "1e+30" &&
+                s9 == "0.00000000000000000001" &&
+                sA == "100000000000000000000" &&
+                sB == "1e+23" &&
+                sC == "1e-23";
             Assert.IsTrue(ok);
         }
     }
