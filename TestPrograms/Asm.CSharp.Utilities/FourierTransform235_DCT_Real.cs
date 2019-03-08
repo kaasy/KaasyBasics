@@ -427,7 +427,7 @@ namespace Utilities
         public static bool DCTUnitTest()
         {
             int precisionDigits = 10;
-            var tolerance = new RealNumber(20 - 64 * precisionDigits, IntegerNumber.One, precisionDigits);
+            var tolerance = new RealNumber(32 - 64 * precisionDigits, IntegerNumber.One, precisionDigits);
             Random random = new Random(1001);
             int n = 3 * 5 * 7 * 2 * 2;
             var dcti1 = new RealNumber[n];
@@ -453,7 +453,7 @@ namespace Utilities
         public static bool FFTUnitTest()
         {
             int precisionDigits = 10;
-            var tolerance = new RealNumber(20 - 64 * precisionDigits, IntegerNumber.One, precisionDigits);
+            var tolerance = new RealNumber(32 - 64 * precisionDigits, IntegerNumber.One, precisionDigits);
             Random random = new Random(1001);
             int n = 3 * 5 * 7 * 2;
             var ffti1 = new ComplexNumber[n];

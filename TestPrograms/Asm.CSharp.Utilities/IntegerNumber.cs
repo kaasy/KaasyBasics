@@ -10,7 +10,7 @@ using System.Windows.Forms;
 
 namespace Utilities
 {
-    public struct IntegerNumber
+    public class IntegerNumber
     {
         private const ulong SignBit = 1UL << 63;
         public static readonly IntegerNumber One = new IntegerNumber(1L);
@@ -21,7 +21,13 @@ namespace Utilities
 
         private ulong[] bits;
 
-        public IntegerNumber(ulong[] data, bool copy) : this()
+        public IntegerNumber()
+        {
+            this.bits = new ulong[1];
+            this.bits[0] = 0UL;
+        }
+
+        public IntegerNumber(ulong[] data, bool copy)
         {
             if (copy)
             {
@@ -32,7 +38,7 @@ namespace Utilities
             this.bits = data;
         }
 
-        public IntegerNumber(long number) : this()
+        public IntegerNumber(long number)
         {
             this.bits = new ulong[1];
             this.bits[0] = (ulong)number;
@@ -570,7 +576,7 @@ namespace Utilities
             for (int i = highestBitPosition; --i >= 0;)
             {
                 result = result.Square();
-                shrink(ref result);
+                shrink(result);
                 if ((exponent & (1 << i)) != 0)
                 {
                     result *= baseNumber;
@@ -619,8 +625,8 @@ namespace Utilities
 
         public static IntegerNumber DivRem(IntegerNumber dividend, IntegerNumber divisor, out IntegerNumber remainder)
         {
-            shrink(ref dividend);
-            shrink(ref divisor);
+            shrink(dividend);
+            shrink(divisor);
             int dividendDigits = dividend.Digits;
             int divisorDigits = divisor.Digits;
             IntegerNumber quotient;
@@ -632,8 +638,8 @@ namespace Utilities
                 quotient = new IntegerNumber(new ulong[n * 2], false);
                 remainder = new IntegerNumber(dividend.bits, true);
                 AsmX64Operations.GetDivMod(remainder.bits, divisor.bits, n, quotient.bits, true);
-                shrink(ref quotient);
-                shrink(ref remainder);
+                shrink(quotient);
+                shrink(remainder);
                 return quotient;
             }
             bool sign = false;
@@ -652,9 +658,9 @@ namespace Utilities
             int delta = n - divisorDigits;
             IntegerNumber x = (divisor << (delta * 128)).Inverse();
             quotient = dividend * x >> (n * 128);
-            shrink(ref quotient);
+            shrink(quotient);
             remainder = dividend - quotient * divisor;
-            shrink(ref remainder);
+            shrink(remainder);
             int count = 0;
             while (remainder.IsNegative)
             {
@@ -687,7 +693,7 @@ namespace Utilities
 
         public IntegerNumber Inverse()
         {
-            shrink(ref this);
+            shrink(this);
             IntegerNumber remainder, result = Inverse(this, out remainder);
             return result;
         }
@@ -714,9 +720,9 @@ namespace Utilities
                 ulong[] q = new ulong[(n + 1) * 2];
                 AsmX64Operations.GetDivMod(a, b.bits, n + 1, q, true);
                 remainder = new IntegerNumber(a, false);
-                shrink(ref remainder);
+                shrink(remainder);
                 IntegerNumber result = new IntegerNumber(q, false);
-                shrink(ref result);
+                shrink(result);
                 return result;
             }
 
@@ -744,11 +750,11 @@ namespace Utilities
 
             IntegerNumber dp = (dx << ((n - m) * 64)) - dlo * x;
             IntegerNumber delta = dp >> ((m - CorrectionDigits) * 64);  //keep one additional correction digit.
-            shrink(ref delta);
+            shrink(delta);
 
             delta *= x;
             delta >>= (m + CorrectionDigits) * 64;
-            shrink(ref delta);
+            shrink(delta);
 
             x <<= (n - m) * 64;
             x += delta;
@@ -759,7 +765,7 @@ namespace Utilities
             //then:     shrink(ref remainder);
             //then:     remainder = -remainder;
             remainder = ((dp - delta * dhi) << ((n - m) * 64)) - delta * dlo;
-            shrink(ref remainder);
+            shrink(remainder);
 
             int count = 0;
             while (remainder.IsNegative)
@@ -793,7 +799,7 @@ namespace Utilities
 
         public long GetHighestPackedDigit(out int associatedShift)
         {
-            shrink(ref this);
+            shrink(this);
             int n = this.Digits;
             if (n <= 1)
             {
@@ -817,7 +823,7 @@ namespace Utilities
         {
             get
             {
-                shrink(ref this);
+                shrink(this);
                 int n = this.Digits;
                 if (n <= 1)
                 {
@@ -833,19 +839,13 @@ namespace Utilities
             {
                 throw new InvalidOperationException("Real logarithm of a negative number does not exist.");
             }
-            shrink(ref number);
+            shrink(number);
             int n = number.Digits;
             if (n <= 1)
             {
                 return number.IsZero ? 0.0 : Math.Log(number.HighestDigit) * LG_E;
             }
             return Math.Log(number.HighestDigit * Power2_64 + number.bits[n - 2]) * LG_E + (n - 2) * 64;
-        }
-
-        private static bool isSquareRoot(IntegerNumber number, IntegerNumber root)
-        {
-            IntegerNumber difference = number - root.Square();
-            return !difference.IsNegative && difference <= (root << 1);
         }
 
         //f[x_] := x^2 - y
@@ -862,7 +862,7 @@ namespace Utilities
             {
                 return IntegerNumber.Zero;
             }
-            shrink(ref this);
+            shrink(this);
             int n = this.Digits;
             int computedDigits = (n & 1) != 0 ? 1 : 2;
             if (computedDigits + 2 <= n)
@@ -880,24 +880,27 @@ namespace Utilities
             {
                 Array.Resize(ref root.bits, 3);
             }
-            do
+            while (true)
             {
+                IntegerNumber oldRoot = root;
                 root = (root + t / root) >> 1;
-            } while (!isSquareRoot(t, root));
-            if (computedDigits == n)
-            {
-                return root;
+                if (IntegerNumber.Abs(oldRoot - root) <= IntegerNumber.One)
+                {
+                    break;
+                }
             }
-
-            do
+            int additionalDigits = 1;
+            for (int i = computedDigits; i < n + additionalDigits;)
             {
                 int digits = Math.Min(computedDigits, n - computedDigits + 1) >> 1;
+                i += computedDigits;
                 root <<= digits * 64;
                 computedDigits += digits * 2;
                 t = computedDigits >= n ? this : this.GetDigits(n - computedDigits, computedDigits, true);
                 root = (root + t / root) >> 1;
-            } while (computedDigits < n || !isSquareRoot(t, root));
-            return root;
+            }
+            IntegerNumber square = root.Square();
+            return this >= square ? root : root - IntegerNumber.One;
         }
 
         //InverseSqrt[this] = Sqrt[(this << (this.Digits * 64)).Inverse()]
@@ -910,7 +913,7 @@ namespace Utilities
             {
                 throw new ArithmeticException("NaN");
             }
-            shrink(ref this);
+            shrink(this);
             int n = this.Digits;
             int computedDigits = (n & 1) != 0 ? 1 : 2;
             if (computedDigits + 2 <= n)
@@ -935,7 +938,7 @@ namespace Utilities
             {
                 int shift = computedDigits * 64 * 3;
                 root = root * ((three << shift) - root.Square() * t) >> (1 + shift);
-                shrink(ref root);
+                shrink(root);
             }
             if (computedDigits == n)
             {
@@ -959,16 +962,16 @@ namespace Utilities
                 int shift2 = (computedDigits * 3 - digits * 3) * 64;
                 root = root * ((three << shift1) - root.Square() * t) >> (1 + shift2);
 
-                shrink(ref root);
+                shrink(root);
             } while (computedDigits < totalDigits);
 
             root >>= additionalDigits * 64;
-            shrink(ref root);
+            shrink(root);
 
             return root;
         }
 
-        public static void shrink(ref IntegerNumber number)
+        public static void shrink(IntegerNumber number)
         {
             int digits = number.RealDigits;
             if (digits != number.Digits)

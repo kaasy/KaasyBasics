@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Utilities;
 
@@ -12,11 +14,17 @@ namespace X64Operations.UnitTest
         [TestMethod]
         public void GeneralRealNumberTest()
         {
-            var no0 = new RealNumber(1L << 62, 2048 / 64);
+            var no0 = new RealNumber(1L << 62, 4096 / 64);
             var no1 = no0.GetExp();
             var no2 = no1.GetLog();
             var no3 = no0.GetTaylorExp();
             var no4 = no3.GetLog();
+            no0 = no0.ChangePrecision(no0.GetPrecisionDigits() - 10);
+            no1 = no1.ChangePrecision(no1.GetPrecisionDigits() - 10);
+            no2 = no2.ChangePrecision(no2.GetPrecisionDigits() - 10);
+            no3 = no3.ChangePrecision(no3.GetPrecisionDigits() - 10);
+            no4 = no4.ChangePrecision(no4.GetPrecisionDigits() - 10);
+
             bool ok = (no2 - no0).IsZero && (no4 - no0).IsZero;
 
             ulong[] xx = Enumerable.Repeat(ulong.MaxValue, 1024 * 48).ToArray();
@@ -225,7 +233,7 @@ namespace X64Operations.UnitTest
         public void SmallToString()
         {
             int precision = 100;
-            RealNumber ten = new RealNumber(10L, precision + 1);
+            RealNumber ten = new RealNumber(10L, precision + 10);
             RealNumber ln10 = ten.GetLog();
 
             RealNumber v1 = (0 * ln10).GetExp();
@@ -273,6 +281,149 @@ namespace X64Operations.UnitTest
                 sA == "100000000000000000000" &&
                 sB == "1e+23" &&
                 sC == "1e-23";
+            Assert.IsTrue(ok);
+        }
+
+        private static int differences(string s1, string s2)
+        {
+            int diffs = 0;
+            for (int i = Math.Min(s1.Length, s2.Length) - 1; --i >= 0;)
+            {
+                diffs += s1[i] != s2[i] ? 1 : 0;
+            }
+            return diffs;
+        }
+
+        [TestMethod]
+        public void TestAll()
+        {
+            for (int digits = 1; digits < 100; digits++)
+            {
+                RealNumber b_one = new RealNumber(2L, digits);
+                RealNumber log1 = RealNumber.Zero, log2 = RealNumber.Zero;
+                Parallel.Invoke(
+                () =>
+                {
+                    log1 = b_one.GetLog();
+                },
+                () =>
+                {
+                    log2 = b_one.GetTaylorLog();
+                });
+                string log1String = log1.ToString();
+                string log2String = log2.ToString();
+                int diffs = differences(log2String, log1String);
+                if (diffs > 0)
+                {
+                    File.WriteAllText("L1MILD.txt", log1String);
+                    File.WriteAllText("L1MILT.txt", log2String);
+                    Assert.IsTrue(false);
+                }
+            }
+            //IntegerNumber zzz = new IntegerNumber(0L);
+            //string ssttrr = zzz.ToString();
+            bool ok = true;
+            //testMultiplicationSpeed();
+
+            RealNumber ten = new RealNumber(10, 1000);
+            RealNumber logTen = ten.GetLog();
+            RealNumber tenExp1 = logTen.GetExp();
+            RealNumber tenExp2 = logTen.GetTaylorExp();
+            IntegerNumber i1 = IntegerNumber.One << 100000;
+            IntegerNumber ia = i1.Sqrt();
+            IntegerNumber ib = i1.InverseSqrt();
+
+            RealNumber ssqrt10 = ten.GetRealDirectSqrt();
+            RealNumber sqrt10 = ten.GetSqrt();
+            RealNumber invSqrt10 = ten.GetInverseSqrt();
+            RealNumber one1 = sqrt10 * invSqrt10;
+            ok &= (one1 - 1).IsZero;
+
+            IntegerNumber int10 = IntegerNumber.Pow(10, 19 * 5000);
+            IntegerNumber t1 = int10.Inverse();
+            IntegerNumber t2 = (IntegerNumber.One << (int10.Digits * 128)) / int10;
+            ok &= t1 == t2;
+            IntegerNumber t3 = int10.InverseSqrt();
+            IntegerNumber t4 = ((IntegerNumber.One << (int10.Digits * 96 * 2)) / int10).Sqrt();
+            ok &= t3 == t4;
+
+            ok &= Fourier235RealUnitTest.FFTUnitTest();
+            ok &= Fourier235RealUnitTest.DCTUnitTest();
+            ok &= Fourier235DoubleUnitTest.FFTUnitTest();
+            ok &= Fourier235DoubleUnitTest.DCTUnitTest();
+            ok &= Fourier235UnitTest.FFTUnitTest();
+            ok &= Fourier235UnitTest.DCTUnitTest();
+
+            ok &= RealNumbersUnitTest.ComplexArcTanSinCosUnitTest();
+            ok &= RealNumbersUnitTest.NumericIntegerOperationsUnitTest();
+
+            ok &= RealNumbersUnitTest.SqrtUnitTest();
+            ok &= MemoryUnitTest.UnitTest(1001);
+            ok &= CarrylessMultiplication.UnitTest(1001);
+
+            int decimalDigits = 10100;
+            int qwords = (int)Math.Ceiling(Math.Log(10, 2) * decimalDigits / 64);
+            RealNumber pi = RealNumber.Zero;
+            RealNumber e = RealNumber.Zero;
+            RealNumber one = new RealNumber(1L, qwords);
+            var computePITime = AsmX64Operations.MeasureTime(() =>
+            {
+                pi = RealNumber.GetPI(qwords);
+            });
+            var computeETime = AsmX64Operations.MeasureTime(() =>
+            {
+                e = one.GetExp();
+            });
+            string pivalue = "";
+            string evalue = "";
+            var baseConvertTimePI = AsmX64Operations.MeasureTime(() =>
+            {
+                pivalue = pi.ToString();
+            });
+            var baseConvertTimeE = AsmX64Operations.MeasureTime(() =>
+            {
+                evalue = e.ToString();
+            });
+            File.WriteAllText(@"..\pi10k.txt", pivalue);
+            File.WriteAllText(@"..\e_10k.txt", evalue);
+
+            //MessageBox.Show(
+            //    "Compute PI Time: " + computePITime.ToString() + "\r\n" +
+            //    "Compute E  Time: " + computeETime.ToString() + "\r\n" +
+            //    "base convert time PI: " + baseConvertTimePI.ToString() + "\r\n" +
+            //    "base convert time E : " + baseConvertTimeE.ToString() + "\r\n",
+            //    "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            var no0 = new RealNumber(1L << 62, 2048 / 64);
+            var no1 = no0.GetExp();
+            var no2 = no1.GetLog();
+            ok &= (no2 - no0).IsZero;
+
+            ulong[] xx = Enumerable.Repeat(ulong.MaxValue, 1024 * 100).ToArray();
+            ulong[] yy = Enumerable.Repeat(ulong.MaxValue, 1024 * 100).ToArray();
+            ulong[] zz = Enumerable.Repeat((ulong)0, 1024 * 200).ToArray();
+            AsmX64Operations.FastestMultiplication(xx, yy, zz, xx.Length);
+            if (zz[0] != 1 || zz[zz.Length / 2 - 1] != 0 || zz[zz.Length / 2] + 2 != 0 || zz[zz.Length - 1] + 1 != 0)
+            {
+                ok = false;
+            }
+
+            ok &= RealNumbersUnitTest.UnitTest(1001);
+            ok &= FourierReal.UnitTest(10012);
+            ok &= FourierMultiplication.UnitTest();
+            ok &= IntegerNumberUnitTest.UnitTest();
+            ok &= FourierMultiplication.UnitTestBigMul(1001);
+            ok &= FastIntegerUnitTest.UnitTest();
+            ok &= FourierMultiplication.UnitTest(1001);
+            ok &= AsmX64Operations.ECCUnitTest();
+            ok &= AsmX64Operations.UnitTest();
+            ok &= HeapUnitTest.UnitTest();
+            ok &= FourierTransform.FFTUnitTest();
+            ok &= AccurateSummation.UnitTest();
+            ok &= BinarySearchUnitTest.UnitTest();
+            ok &= AVLTree<int>.UnitTest();
+            ok &= AVLTreeSorted<int>.UnitTest();
+
             Assert.IsTrue(ok);
         }
     }

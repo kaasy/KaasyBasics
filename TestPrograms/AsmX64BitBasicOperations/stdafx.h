@@ -25,7 +25,7 @@ const uint64 MaxValueUint64 = 0xFFFFFFFFFFFFFFFFULL;
 const uint64 Bit63 = 0x8000000000000000ULL;
 
 static uint64 zero[2] = { 0, 0 };
-static int KaratsubaBreakPoint = 14;
-static int FourierBreakPoint = 7 * 1024;
+static int KaratsubaBreakPoint = 18;
+static int FourierBreakPoint = 6 * 1024 + 512;
 static int CarrylessKaratsubaBreakPoint = 14;
 static int CarrylessFourierBreakPoint = 14 * 1024;

@@ -3,11 +3,12 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using System.Threading.Tasks;
 
 namespace Utilities
 {
     [DebuggerDisplay("{ToString()}")]
-    public struct RealNumber
+    public class RealNumber
     {
         //internal const int RealMaxBits = 2048;
         //private const int ToStringDigits = 100 * 100;
@@ -31,12 +32,18 @@ namespace Utilities
             return new RealNumber(x, 2);
         }
 
+        public RealNumber() : this(1)
+        {
+            this.mantissa = IntegerNumber.Zero;
+            this.shift = 0;
+        }
+
         //value = 2^(shift) * mantissa
         private long shift;
         private IntegerNumber mantissa;
         internal int totalDigits;
 
-        public RealNumber(int numberOf64BitDigits) : this()
+        public RealNumber(int numberOf64BitDigits)
         {   //value of the number is 0.
             this.totalDigits = numberOf64BitDigits;
         }
@@ -77,7 +84,7 @@ namespace Utilities
 
         private void simplify()
         {
-            IntegerNumber.shrink(ref this.mantissa);
+            IntegerNumber.shrink(this.mantissa);
             if (this.mantissa.IsZero)
             {
                 return;
@@ -87,6 +94,10 @@ namespace Utilities
             {
                 this.shift += overflowBits;
                 this.mantissa = (this.mantissa + (IntegerNumber.One << (overflowBits - 1))) >> overflowBits;
+                if (this.mantissa.IsZero)
+                {
+                    return;
+                }
             }
             if (this.mantissa.IsEven)
             {
@@ -204,12 +215,40 @@ namespace Utilities
             return new RealNumber(shl - this.shift - mantissa.Digits * 128L, quotient, this.totalDigits);
         }
 
+        //FullSimplify[x - f[x]/D[f[x], x] - x (2 - x*y)]
+        public RealNumber InverseDirect()
+        {
+            if (this.mantissa.IsZero)
+            {
+                throw new ArithmeticException("Division by 0.");
+            }
+            //this = 2^(shift+mantissaBits) * [mantissa >> mantissaBits]
+            //1/this = 2^(-[shift+mantissaBits]) * 1/[mantissa >> mantissaBits]
+            int mantissaBits = this.mantissaBits;
+            long resultShift = this.shift + mantissaBits;
+            RealNumber source = new RealNumber(-mantissaBits, this.mantissa, this.totalDigits);
+            int totalBits = this.totalDigits * 64;
+            RealNumber x = new RealNumber(1.0 / source.ToDouble, 2);
+            RealNumber two = new RealNumber(2L, 1);
+            for (int bits = 51 / 2; bits < totalBits; bits *= 2)
+            {
+                int precision = Math.Min(source.totalDigits, (bits * 2 + 63) >> 6);
+                x = x.ChangePrecision(precision);
+                RealNumber y = source.ChangePrecision(precision);
+                x *= two - x * y;
+            }
+            RealNumber result = new RealNumber(x.shift - resultShift, x.mantissa, this.totalDigits);
+            return result;
+        }
+
         public static RealNumber Abs(RealNumber x)
         {
             return new RealNumber(x.shift, IntegerNumber.Abs(x.mantissa), x.totalDigits);
         }
 
-        public RealNumber GetSlowerSqrt()
+        //f[x_] := x^2 - y
+        //FullSimplify[ x - 2*f[x]*D[f[x], x]/(2*D[f[x], x]^2 - f[x]*D[f[x], {x, 2}]) -   x*(x^2 + 3  y)/(3 x^2 + y)]
+        public RealNumber GetRealDirectSqrt()
         {
             if (this.mantissa.IsZero)
             {
@@ -219,10 +258,29 @@ namespace Utilities
             {
                 throw new ArithmeticException("NaN");
             }
-            int shift = RealMaxBits * 2 - this.mantissaBits;
-            shift += ((int)this.shift ^ shift) & 1;
-            RealNumber root = new RealNumber((this.shift - shift) / 2, (this.mantissa << shift).Sqrt(), this.totalDigits);
-            return root;
+            //this = 2^(shift+mantissaBits) * [mantissa >> mantissaBits]
+            //sqrt(this) = 2^([shift+mantissaBits]/2) * sqrt[mantissa >> mantissaBits]
+            int mantissaBits = this.mantissaBits;
+            long resultShift = this.shift + mantissaBits;
+            if ((resultShift & 1L) != 0)
+            {
+                mantissaBits++;
+                resultShift++;
+            }
+            resultShift >>= 1;
+            RealNumber source = new RealNumber(-mantissaBits, this.mantissa, this.totalDigits);
+            int totalBits = this.totalDigits * 64;
+            RealNumber x = new RealNumber(Math.Sqrt(source.ToDouble), 2);
+            for (int bits = 51 / 3; bits < totalBits; bits *= 3)
+            {
+                int precision = Math.Min(source.totalDigits, (bits * 3 + 63) >> 6);
+                x = x.ChangePrecision(precision);
+                RealNumber y = source.ChangePrecision(precision);
+                RealNumber x2 = x.Square();
+                x *= (x2 + (y << 1) + y) / (x2 + (x2 << 1) + y);
+            }
+            RealNumber result = new RealNumber(x.shift + resultShift, x.mantissa, this.totalDigits);
+            return result;
         }
 
         public RealNumber GetSqrt()
@@ -231,12 +289,12 @@ namespace Utilities
             {
                 return this;
             }
-            return this.GetInverseSqrt().Inverse();
+            //return this.GetInverseSqrt().Inverse();
+            return this.GetRealDirectSqrt();
         }
 
         //f[x_] := (1/x)^2 - y
-        //FullSimplify[x - f[x] / D[f[x], x]] = x * (1/2) * (3 - x^2 y)
-        //FullSimplify[x - 2 * f[x] * D[f[x], x] / (2 * D[f[x], x] ^ 2 - f[x] * D[f[x], {x, 2}])] = x * (3 + x^2 y) / (1 + 3 x^2 y)
+        //FullSimplify[x - 2*f[x]*D[f[x], x]/(2*D[f[x], x]^2 - f[x]*D[f[x], {x, 2}]) - (x (3 + x^2 y))/(1 + 3 x^2 y)]
         public RealNumber GetInverseSqrt()
         {
             if (this.mantissa.IsZero)
@@ -258,19 +316,20 @@ namespace Utilities
                 resultShift++;
             }
             resultShift >>= 1;
-            RealNumber source = new RealNumber(-mantissaBits, this.mantissa, this.totalDigits + 2);
+            RealNumber source = new RealNumber(-mantissaBits, this.mantissa, this.totalDigits);
             int totalBits = source.totalDigits * 64;
-            RealNumber result = new RealNumber(1.0 / Math.Sqrt(source.ToDouble), 2);
+            RealNumber x = new RealNumber(1.0 / Math.Sqrt(source.ToDouble), 2);
             RealNumber three = new RealNumber(3L, 1);
-            for (int bits = 52; bits < totalBits; bits *= 2)
+            for (int bits = 51 / 3; bits < totalBits; bits *= 3)
             {
-                int precision = Math.Min(source.totalDigits, (bits * 2 + 63) >> 6);
-                result = result.ChangePrecision(precision);
-                RealNumber x = source.ChangePrecision(precision);
-                result *= (three - x * result.Square()) >> 1;
+                int precision = Math.Min(source.totalDigits, (bits * 3 + 63) >> 6);
+                x = x.ChangePrecision(precision);
+                RealNumber y = source.ChangePrecision(precision);
+                RealNumber z = x.Square() * y;
+                x *= (three + z) / (RealNumber.One + z + (z << 1));
             }
-            RealNumber inverseSqrt = new RealNumber(result.shift - resultShift, result.mantissa, this.totalDigits);
-            return inverseSqrt;
+            RealNumber result = new RealNumber(x.shift - resultShift, x.mantissa, this.totalDigits);
+            return result;
         }
 
         public static RealNumber operator -(RealNumber x)
@@ -340,21 +399,66 @@ namespace Utilities
             return diff.IsNegative || diff.IsZero;
         }
 
-        private static RealNumber getLN2Value(int numberOf64BitDigits)
+        public static RealNumber GetLN2ValueSlow(int numberOf64BitDigits)
         {
-            long shift = ((numberOf64BitDigits + 2) * 64L + 35) / 36;
+            long necessaryNumberOfBits = 2L + numberOf64BitDigits * 32L;
+            int additionalDigits = 1;
+            RealNumber x = new RealNumber(2L, numberOf64BitDigits + additionalDigits);
+            int k = 0;
+            while (x.EstimateLog2 <= necessaryNumberOfBits)
+            {
+                x *= x;
+                k++;
+            }
+            RealNumber pi = GetPI(numberOf64BitDigits + additionalDigits);
+            RealNumber log = (pi >> 1) / AGMReal(RealNumber.One, x.Inverse() << 2) >> k;
+            RealNumber result = log.ChangePrecision(numberOf64BitDigits);
+            return result;
+        }
 
-            RealNumber q = new RealNumber(-shift, IntegerNumber.One, numberOf64BitDigits + 2);
+        public RealNumber GetLogSlow()
+        {
+            if (this.IsNegative)
+            {
+                throw new ArithmeticException("NaN");
+            }
+            if (this.IsZero)
+            {
+                return new RealNumber(int.MaxValue, IntegerNumber.MinusOne, this.totalDigits);   // - infinity
+            }
+            long necessaryBits = 2L + this.totalDigits * 32L;
+            long shiftLeft = 2L + necessaryBits - (this.mantissaBits + this.shift);
+            int additionalDigits = 1;
+
+            RealNumber x = new RealNumber(this.shift + shiftLeft, this.mantissa, this.totalDigits + additionalDigits);
+            if (x.EstimateLog2 < necessaryBits)
+            {
+                Debugger.Break();
+            }
+
+            RealNumber pi = GetPI(this.totalDigits + additionalDigits);
+            RealNumber ln2 = GetLN2(this.totalDigits + additionalDigits);
+            RealNumber log = (pi >> 1) / AGMReal(RealNumber.One, x.Inverse() << 2) - ln2 * shiftLeft;   //need: x >= 2^(d/2) so converges in 2 lg(d) steps.
+            RealNumber result = log.ChangePrecision(this.totalDigits);
+            return result;
+        }
+
+        public static RealNumber GetLN2Value(int numberOf64BitDigits)
+        {
+            long shift = 1L + numberOf64BitDigits * 64L / 36L;
+            int additionalDigits = 1;
+
+            RealNumber q = new RealNumber(-shift, IntegerNumber.One, numberOf64BitDigits + additionalDigits);
             RealNumber q4 = q.Square().Square();
             RealNumber q8 = q4.Square();
             RealNumber q16 = q8.Square();
             RealNumber q24 = q16 * q8;
-            RealNumber rootFirstArgument = (RealNumber.One + q8 + q24) * q << 1;
+            RealNumber rootFirstArgument = (RealNumber.One + q8 + q24) * (q << 1);
             RealNumber rootSecondArgument = RealNumber.One + ((q4 + q16) << 1);
-            RealNumber arg1 = rootFirstArgument * rootSecondArgument << 1;
+            RealNumber arg1 = (rootFirstArgument * rootSecondArgument) << 1;
             RealNumber arg2 = (rootFirstArgument + rootSecondArgument).Square() - arg1;
 
-            RealNumber pi = GetPI(numberOf64BitDigits + 2);
+            RealNumber pi = GetPI(numberOf64BitDigits + additionalDigits);
             RealNumber ln2 = (pi >> 1) / AGMReal(arg1, arg2) / shift;
             RealNumber result = new RealNumber(ln2.shift, ln2.mantissa, numberOf64BitDigits);
             return result;
@@ -370,21 +474,27 @@ namespace Utilities
             {
                 return new RealNumber(int.MaxValue, IntegerNumber.MinusOne, this.totalDigits);   // - infinity
             }
-            long shiftLeft = ((this.totalDigits + 2) * 64L + 35) / 36 - (this.mantissaBits + this.shift);
+            long necessaryBits = 1L + this.totalDigits * 64L / 36L;
+            long shiftLeft = 2 + necessaryBits - (this.mantissaBits + this.shift);
+            int additionalDigits = 1;
 
-            RealNumber x = new RealNumber(this.shift + shiftLeft, this.mantissa, this.totalDigits + 2);
+            RealNumber x = new RealNumber(this.shift + shiftLeft, this.mantissa, this.totalDigits + additionalDigits);
+            if (x.EstimateLog2 < necessaryBits)
+            {
+                Debugger.Break();
+            }
             RealNumber q = x.Inverse();
             RealNumber q4 = q.Square().Square();
             RealNumber q8 = q4.Square();
             RealNumber q16 = q8.Square();
             RealNumber q24 = q16 * q8;
-            RealNumber rootFirstArgument = (RealNumber.One + q8 + q24) * q << 1;
+            RealNumber rootFirstArgument = (RealNumber.One + q8 + q24) * (q << 1);
             RealNumber rootSecondArgument = RealNumber.One + ((q4 + q16) << 1);
-            RealNumber arg1 = rootFirstArgument * rootSecondArgument << 1;
+            RealNumber arg1 = (rootFirstArgument * rootSecondArgument) << 1;
             RealNumber arg2 = (rootFirstArgument + rootSecondArgument).Square() - arg1;
 
-            RealNumber pi = GetPI(this.totalDigits + 2);
-            RealNumber ln2 = GetLN2(this.totalDigits + 2);
+            RealNumber pi = GetPI(this.totalDigits + additionalDigits);
+            RealNumber ln2 = GetLN2(this.totalDigits + additionalDigits);
             RealNumber log = (pi >> 1) / AGMReal(arg1, arg2) - ln2 * shiftLeft;   //need: x >= 2^(d/36) so O(q^36) are negligible.
             RealNumber result = log.ChangePrecision(this.totalDigits);
             return result;
@@ -399,25 +509,27 @@ namespace Utilities
         public static ComplexNumber GetComplexLog(ComplexNumber argument)
         {
             int totalDigits = Math.Max(argument.Real.totalDigits, argument.Imaginary.totalDigits);
+            long necessaryBits = 1L + totalDigits * 64L / 36L;
+            int additionalDigits = 1;
             long shiftLeft = Math.Max(
-                ((totalDigits + 2) * 64L + 35) / 36 - (argument.Real.mantissaBits + argument.Real.shift),
-                ((totalDigits + 2) * 64L + 35) / 36 - (argument.Imaginary.mantissaBits + argument.Imaginary.shift));
+                2 + necessaryBits - (argument.Real.mantissaBits + argument.Real.shift),
+                2 + necessaryBits - (argument.Imaginary.mantissaBits + argument.Imaginary.shift));
 
             ComplexNumber x = new ComplexNumber(
-                new RealNumber(argument.Real.shift + shiftLeft, argument.Real.mantissa, totalDigits + 2),
-                new RealNumber(argument.Imaginary.shift + shiftLeft, argument.Imaginary.mantissa, totalDigits + 2));
+                new RealNumber(argument.Real.shift + shiftLeft, argument.Real.mantissa, totalDigits),
+                new RealNumber(argument.Imaginary.shift + shiftLeft, argument.Imaginary.mantissa, totalDigits));
             ComplexNumber q = x.Inverse();
             ComplexNumber q4 = q.Square().Square();
             ComplexNumber q8 = q4.Square();
             ComplexNumber q16 = q8.Square();
             ComplexNumber q24 = q16 * q8;
-            ComplexNumber rootFirstArgument = (ComplexNumber.One + q8 + q24) * q << 1;
+            ComplexNumber rootFirstArgument = (ComplexNumber.One + q8 + q24) * (q << 1);
             ComplexNumber rootSecondArgument = ComplexNumber.One + ((q4 + q16) << 1);
-            ComplexNumber arg1 = rootFirstArgument * rootSecondArgument << 1;
+            ComplexNumber arg1 = (rootFirstArgument * rootSecondArgument) << 1;
             ComplexNumber arg2 = (rootFirstArgument + rootSecondArgument).Square() - arg1;
 
-            RealNumber pi = GetPI(totalDigits + 2);
-            RealNumber ln2 = GetLN2(totalDigits + 2);
+            RealNumber pi = GetPI(totalDigits + additionalDigits);
+            RealNumber ln2 = GetLN2(totalDigits + additionalDigits);
             ComplexNumber log = (pi >> 1) / AGMComplex(arg1, arg2);     //need: x >= 2^(d/36) so O(q^36) are negligible.
             ComplexNumber result = new ComplexNumber(
                 (log.Real - ln2 * shiftLeft).ChangePrecision(totalDigits),
@@ -471,7 +583,7 @@ namespace Utilities
             IntegerNumber left = getIntegerProduct(start, middle);
             IntegerNumber right = getIntegerProduct(middle + 1, end);
             IntegerNumber result = left * right;
-            IntegerNumber.shrink(ref result);
+            IntegerNumber.shrink(result);
             return result;
         }
 
@@ -483,12 +595,31 @@ namespace Utilities
                 product = new IntegerNumber((long)start);
                 return startPower;
             }
-            RealNumber save = startPower;
+            int middle = start + (end - start) / 2;
+            IntegerNumber product2;
+            RealNumber result1 = getLocalExponentialSummation(start, middle, ref startPower, exp, out product);
             startPower *= exp;
-            RealNumber result = getLocalExponentialSummation(start + 1, end, ref startPower, exp, out product);
-            result += save * product;
-            product *= start;
-            IntegerNumber.shrink(ref product);
+            RealNumber result = getLocalExponentialSummation(middle + 1, end, ref startPower, exp, out product2);
+            product *= product2;
+            result += result1 * product2;
+            return result;
+        }
+
+        private static RealNumber smallPower(RealNumber x, int power)
+        {
+            if (power <= 0)
+            {
+                return RealNumber.One;
+            }
+            if (power == 1)
+            {
+                return x;
+            }
+            RealNumber result = smallPower(x, power / 2).Square();
+            if ((power & 1) != 0)
+            {
+                result *= x;
+            }
             return result;
         }
 
@@ -500,39 +631,50 @@ namespace Utilities
         private static RealNumber taylorSeriesExponent(int start, int end,
             RealNumber exp,
             ref RealNumber startPower,          // startPower = exp ^ start [is input]
-            out IntegerNumber factorial)	    // = end! / (start - 1)! = product from [start to end] inclusive
+            out IntegerNumber factorial, int threadsCount)	    // = end! / (start - 1)! = product from [start to end] inclusive
         {
-            //if (start == end)
-            //{
-            //    factorial = start == 0 ? IntegerNumber.One : new IntegerNumber((long)start);
-            //    return startPower;
-            //}
+            RealNumber result;
             if (start + 24 >= end)
             {
-                RealNumber result = getLocalExponentialSummation(start, end, ref startPower, exp, out factorial);
+                result = getLocalExponentialSummation(start, end, ref startPower, exp, out factorial);
+                IntegerNumber.shrink(factorial);
                 return result;
-                ///result = sum[i = start to end: of startPower * exp^(i-start) * product[i + 1 to end]
-                //factorial = getIntegerProduct(start, end);
-                //IntegerNumber product = factorial / start;
-                //RealNumber result = startPower * product;
-                //for (int i = start + 1; i <= end; i++)
-                //{
-                //    startPower *= exp;
-                //    product /= i;
-                //    result += startPower * product;
-                //}
-                //return result;
             }
 
-            int middle = start + ((end - start) >> 1);
-            IntegerNumber secondFactorial;
-            RealNumber left = taylorSeriesExponent(start, middle, exp, ref startPower, out factorial);
-            startPower *= exp;      //we have startPower computed at "middle", need to multiply once here to compute it for the "middle + 1" exponent.
-            RealNumber right = taylorSeriesExponent(middle + 1, end, exp, ref startPower, out secondFactorial);
-            factorial *= secondFactorial;
-            IntegerNumber.shrink(ref factorial);
-            //left / A! + right / B! = [left * (B!/A!) + right] / B!
-            return left * secondFactorial + right;
+            if (threadsCount > 1)
+            {
+                int middle = start + ((end - start) / 2);
+                IntegerNumber firstFactorial = IntegerNumber.Zero, secondFactorial = IntegerNumber.Zero;
+                RealNumber left = RealNumber.Zero, right = RealNumber.Zero;
+                RealNumber startPower1 = startPower;
+                RealNumber startPower2 = startPower * smallPower(exp, middle - start + 1);
+                Parallel.Invoke(() =>
+                {
+                    left = taylorSeriesExponent(start, middle, exp, ref startPower1, out firstFactorial, (threadsCount + 1) / 2);
+                }, () =>
+                {
+                    right = taylorSeriesExponent(middle + 1, end, exp, ref startPower2, out secondFactorial, (threadsCount + 1) / 2);
+                });
+                startPower = startPower2;
+                factorial = firstFactorial * secondFactorial;
+                IntegerNumber.shrink(factorial);
+                //left / A! + right / B! = [left * (B!/A!) + right] / B!
+                result = right + left * secondFactorial;
+                return result;
+            }
+            else
+            {
+                int middle = start + ((end - start) / 2);
+                IntegerNumber secondFactorial;
+                RealNumber left = taylorSeriesExponent(start, middle, exp, ref startPower, out factorial, (threadsCount + 1) / 2);
+                startPower *= exp;      //we have startPower computed at "middle", need to multiply once here to compute it for the "middle + 1" exponent.
+                result = taylorSeriesExponent(middle + 1, end, exp, ref startPower, out secondFactorial, threadsCount / 2);
+                factorial *= secondFactorial;
+                IntegerNumber.shrink(factorial);
+                //left / A! + right / B! = [left * (B!/A!) + right] / B!
+                result += left * secondFactorial;
+                return result;
+            }
         }
 
         public IntegerNumber getBitBurst(int index, int count)
@@ -552,7 +694,7 @@ namespace Utilities
                 return new RealNumber(1L, this.totalDigits);
             }
 
-            int totalDigits = this.totalDigits + 2;
+            int totalDigits = this.totalDigits + 1;
             bool isNegative = this.IsNegative;
             RealNumber log = RealNumber.Abs(this).ChangePrecision(totalDigits);
 
@@ -581,7 +723,7 @@ namespace Utilities
 
                 x = isNegative ? -x : x;
                 IntegerNumber factorial;
-                RealNumber partial = taylorSeriesExponent(1, factors, x, ref x, out factorial);
+                RealNumber partial = taylorSeriesExponent(1, factors, x, ref x, out factorial, Environment.ProcessorCount);
                 result *= RealNumber.One + partial / factorial;
             }
 
@@ -593,18 +735,62 @@ namespace Utilities
             return result;
         }
 
+        public RealNumber GetTaylorLog()
+        {
+            RealNumber result = this.GetTaylorLogDirect();
+            return result;
+        }
+
+        //f[x_] := Exp[x] - y
+        //FullSimplify[ x - 2 * f[x] *   D[f[x], x] / (2 * D[f[x], x] ^ 2 - f[x] * D[f[x], {x, 2}])     -         (x + 4* y/(Exp[x] + y) - 2)]
+        private RealNumber GetTaylorLogDirect()
+        {
+            int additionalDigits = 1;
+            if (this.IsNegative)
+            {
+                throw new ArithmeticException("NaN");
+            }
+            if (this.IsZero)
+            {
+                return new RealNumber(int.MaxValue, IntegerNumber.MinusOne, this.totalDigits);   // - infinity
+            }
+
+            double estimateLn = this.EstimateLog2 * LN_2;
+            long totalInputBits = (this.totalDigits + additionalDigits) * 64L;
+            RealNumber x = new RealNumber(estimateLn, 1);
+            RealNumber two = new RealNumber(2L, 1);
+            for (int count = 51 / 3; count < totalInputBits; count *= 3)
+            {
+                int newPrecision = Math.Min((count * 3 + 63) >> 6, this.totalDigits + additionalDigits);
+                RealNumber y = this.ChangePrecision(newPrecision);
+                RealNumber z = x.ChangePrecision(newPrecision);
+                x += (y << 2) / (z.GetTaylorExp() + y) - two;
+            }
+
+            RealNumber result = x.ChangePrecision(this.totalDigits);
+            return result;
+        }
+
         #endregion
 
         #region Exponential
+
+        public RealNumber GetExp()
+        {
+            RealNumber log = new RealNumber(this.shift, this.mantissa, this.totalDigits + 2);
+            RealNumber exp = log.GetDirectExponent();
+            RealNumber result = exp.ChangePrecision(this.totalDigits);
+            return result;
+        }
 
         //https://en.wikipedia.org/wiki/Householder%27s_method
         //f[x_] := Log[x] - y
         //D[f[x], x]
         //D[f[x], {x, 2}]
         //FullSimplify[x - f[x]*D[f[x], x]/(D[f[x], x]^2 - f[x]*D[f[x], {x, 2}]/2)] = x (2 + y - Log[x])/(2 - y + Log[x]) = x*(2 - f[x])*(2 + f[x])
-        public RealNumber GetExp()
+        private RealNumber GetDirectExponent()
         {   //2^x = exp(this) ==> exp(x * ln(2)) = exp(this) => x * ln(2) = this => x = this * log2(e) = this / ln(2)            
-            RealNumber ln2 = GetLN2(this.totalDigits + 2);
+            RealNumber ln2 = GetLN2(this.totalDigits);
             long k = (this / ln2).ToLong;
             RealNumber log = this - k * ln2;
             if (log.IsZero)
@@ -612,13 +798,14 @@ namespace Utilities
                 return new RealNumber(k, IntegerNumber.One, this.totalDigits);
             }
             //x = k + log ==> 2^x == 2^(k+log) == 2^k * 2^log = 2^k * exp(log * ln(2))
-            RealNumber exp = new RealNumber(Math.Exp(log.ToDouble), 1 + 2);
-            for (int bits = 52; bits < this.RealMaxBits; bits *= 3)
+            RealNumber exp = new RealNumber(Math.Exp(log.ToDouble), 1);
+            RealNumber two = new RealNumber(2L, 1);
+            for (int bits = 51 / 3; bits < this.RealMaxBits; bits *= 3)
             {
-                int stepPrecision = Math.Min(this.totalDigits + 2, (bits * 3 + 63) >> 6);
+                int stepPrecision = Math.Min(this.totalDigits, (bits * 3 + 63) >> 6);
                 exp.totalDigits = stepPrecision;
                 RealNumber cache = exp.GetLog() - log.ChangePrecision(stepPrecision);
-                exp *= (2 - cache) / (2 + cache);
+                exp *= (two - cache) / (two + cache);
             }
             RealNumber result = new RealNumber(exp.shift + k, exp.mantissa, this.totalDigits);
             return result;
@@ -642,7 +829,7 @@ namespace Utilities
         public static ComplexNumber GetComplexExp(ComplexNumber argument)
         {
             int totalDigits = Math.Max(argument.Real.totalDigits, argument.Imaginary.totalDigits);
-            RealNumber pi = GetPI(totalDigits + 2);
+            RealNumber pi = GetPI(totalDigits);
             RealNumber argDiv2PI = argument.Imaginary / (pi << 1);
             RealNumber imaginaryPart = (argDiv2PI - argDiv2PI.Floor()) * (pi << 1);
             List<RealNumber> list = new List<RealNumber>();
@@ -651,7 +838,7 @@ namespace Utilities
             reduce(list, functionsList, ref imaginaryPart, -pi >> 1, x => x.DivI());
             reduce(list, functionsList, ref imaginaryPart, pi, x => -x);
             reduce(list, functionsList, ref imaginaryPart, pi >> 1, x => x.MulI());
-            RealNumber ln2 = GetLN2(totalDigits + 2);
+            RealNumber ln2 = GetLN2(totalDigits);
             long k = (argument.Real / ln2).ToLong;
             ComplexNumber log = new ComplexNumber(argument.Real - ln2 * k, imaginaryPart);
             double factor = Math.Exp(log.Real.ToDouble);
@@ -659,9 +846,9 @@ namespace Utilities
             ComplexNumber exp = new ComplexNumber(
                 new RealNumber(factor * Math.Cos(imaginary), 2 + 1),
                 new RealNumber(factor * Math.Sin(imaginary), 2 + 1));
-            for (int bits = 52; bits < (totalDigits + 2) * 64; bits *= 3)
+            for (int bits = 52 / 3; bits < totalDigits * 64; bits *= 3)
             {
-                int stepPrecision = Math.Min(totalDigits + 2, (bits * 3 + 63) >> 6);
+                int stepPrecision = Math.Min(totalDigits, (bits * 3 + 63) >> 6);
                 exp.SetTotalDigits(stepPrecision);
                 ComplexNumber cache = GetComplexLog(exp) - log.ChangePrecision(stepPrecision);
                 exp *= (2 - cache) / (2 + cache);
@@ -703,42 +890,42 @@ namespace Utilities
         public static RealNumber GetPI(int numberOf64BitDigits)
         {
             RealNumber pi = piDictionary.GetOrAdd(numberOf64BitDigits, getPIValue);
-            return pi;
+            RealNumber result = new RealNumber(pi.shift, pi.mantissa, pi.totalDigits);
+            return result;
         }
 
+        /// <summary>
+        /// https://keisan.casio.com/exec/system/1355108617
+        /// </summary>
+        /// <param name="numberOf64BitDigits"></param>
+        /// <returns></returns>
         private static RealNumber getPIValue(int numberOf64BitDigits)
         {
-            RealNumber sqrt2 = new RealNumber(2L, numberOf64BitDigits + 2).GetSqrt();
-            RealNumber one = new RealNumber(1L, numberOf64BitDigits + 2);
-            RealNumber y = sqrt2 - 1;
-            RealNumber a = 6 - (sqrt2 << 2);
-            RealNumber error = one;
+            RealNumber y = new RealNumber(2L, numberOf64BitDigits + 2).GetSqrt() - RealNumber.One;
+            RealNumber a = y.Square() << 1;
+            RealNumber estimation = new RealNumber(1.0 / 3.1415926535897932384626433832795, 1);
+            RealNumber maximumError = new RealNumber(-(numberOf64BitDigits + 1) * 64L, IntegerNumber.One, numberOf64BitDigits + 2);
             for (int n = 1; ; n++)
             {
-                RealNumber y2 = y.Square();
-                RealNumber root4 = (one - y2.Square()).GetSqrt().GetSqrt();
-                y = (one - root4) / (one + root4);
-                y2 = (y + 1).Square();
-                RealNumber save = y2;
-                y2 = y2.Square();
-                RealNumber nexta = y2 * a - (((save - y) * y) << (n * 2 + 1));
-                RealNumber currentError = RealNumber.Abs(nexta - a);
-                if (currentError >= error)
+                RealNumber z = (RealNumber.One - y.Square().Square()).GetSqrt().GetSqrt();
+                y = (RealNumber.One - z) / (RealNumber.One + z);
+                a = a * (RealNumber.One + y).Square().Square() - (y * (RealNumber.One + y + y.Square()) << (n * 2 + 1));
+                if (RealNumber.Abs(a - estimation) < maximumError)
                 {
-                    RealNumber inverse = a.Inverse();
-                    RealNumber result = new RealNumber(inverse.shift, inverse.mantissa, numberOf64BitDigits);
+                    RealNumber result = a.Inverse();
+                    result = result.ChangePrecision(numberOf64BitDigits);
                     return result;
                 }
-                a = nexta;
-                error = currentError;
+                estimation = a;
             }
         }
 
         private static ConcurrentDictionary<int, RealNumber> ln2Dictionary = new ConcurrentDictionary<int, RealNumber>();
         public static RealNumber GetLN2(int numberOf64BitDigits)
         {
-            RealNumber ln2 = ln2Dictionary.GetOrAdd(numberOf64BitDigits, getLN2Value);
-            return ln2;
+            RealNumber ln2 = ln2Dictionary.GetOrAdd(numberOf64BitDigits, GetLN2Value);
+            RealNumber result = new RealNumber(ln2.shift, ln2.mantissa, ln2.totalDigits);
+            return result;
         }
 
         public static readonly RealNumber One = new RealNumber(0, IntegerNumber.One, 1);
@@ -749,6 +936,10 @@ namespace Utilities
 
         public static RealNumber AGMReal(RealNumber x, RealNumber y)
         {
+            if (x.IsZero || y.IsZero)
+            {
+                return RealNumber.Zero;
+            }
             RealNumber previousError = RealNumber.Abs(x - y);
             while (true)
             {
@@ -796,7 +987,7 @@ namespace Utilities
             int shift = (int)Math.Floor(number.BitsCount * LOG10_2) - keepDigits;
             number = shift >= 0 ? number / IntegerNumber.Pow(10, shift) : number * IntegerNumber.Pow(10, -shift);
             shift10 += shift;
-            IntegerNumber.shrink(ref number);
+            IntegerNumber.shrink(number);
         }
 
         private static IntegerNumber mostSignificantExponent(IntegerNumber number, int keepDigits, long power, out long shift10)
@@ -919,7 +1110,7 @@ namespace Utilities
     }
 
     [DebuggerDisplay("{ToString()}")]
-    public struct ComplexNumber
+    public class ComplexNumber
     {
         public static readonly ComplexNumber Zero = new ComplexNumber(RealNumber.Zero, RealNumber.Zero);
         public static readonly ComplexNumber One = new ComplexNumber(RealNumber.One, RealNumber.Zero);
@@ -937,8 +1128,13 @@ namespace Utilities
         public RealNumber Real { get; set; }
         public RealNumber Imaginary { get; set; }
 
+        public ComplexNumber(RealNumber real)
+        {
+            this.Real = real;
+            this.Imaginary = RealNumber.Zero;
+        }
+
         public ComplexNumber(RealNumber real, RealNumber imaginary)
-            : this()
         {
             this.Real = real;
             this.Imaginary = imaginary;
@@ -1151,7 +1347,7 @@ namespace Utilities
                 random.NextBytes(data);
                 data[data.Length - 1] = 0;
                 IntegerNumber int10 = new IntegerNumber(data);
-                IntegerNumber.shrink(ref int10);
+                IntegerNumber.shrink(int10);
                 IntegerNumber test1 = int10.Sqrt();
                 IntegerNumber test2 = test1.Square();
                 ok &= 0 <= int10 - test2 && int10 - test2 <= test1 * 2;
@@ -1160,7 +1356,7 @@ namespace Utilities
                 ok &= t1 == t2;
                 IntegerNumber t3 = int10.InverseSqrt();
                 IntegerNumber t4 = ((IntegerNumber.One << (int10.Digits * 64 * 3)) / int10).Sqrt();
-                IntegerNumber t5 = ((int10 << (int10.Digits * 64)).Inverse()).Sqrt();
+                IntegerNumber t5 = (int10 << (int10.Digits * 64)).Inverse().Sqrt();
                 ok &= t3 == t4 && t4 == t5;
             }
             return ok;
@@ -1174,10 +1370,6 @@ namespace Utilities
             {
                 RealNumber rn1 = (ln10 * power).GetExp();
                 RealNumber rn2 = (ln10 * power).GetTaylorExp();
-                if (!(rn1 - rn2).IsZero)
-                {
-                    return false;
-                }
                 double dn = Math.Pow(10, power);
                 for (int i = 0; i <= 100; i++)
                 {
@@ -1237,7 +1429,7 @@ namespace Utilities
 
         public static bool ComplexArcTanSinCosUnitTest()
         {
-            RealNumber epsilon = 1E-34;
+            RealNumber epsilon = 1E-33;
             ComplexNumber test1 = new ComplexNumber(-100, -1E-10);
             ComplexNumber logt1 = test1.ComplexLog();
             ComplexNumber tres1 = logt1.ComplexExp();
